@@ -94,7 +94,7 @@ def normalization(text):
     Returns:
         tokens
     """
-    tokens = nltk.word_tokenize(text)
+    tokens = nltk.word_tokenize(text, preserve_line=True)
     norm_text = []
     for token in tokens:
         # remove non-ASCII characters

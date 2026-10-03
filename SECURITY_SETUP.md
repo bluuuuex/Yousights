@@ -26,11 +26,51 @@ runs only as a script when MERGE_PULL_REQUEST=true.
 Each service requirements file is self-contained for directory-based cloud staging.
 The API stack migrates Flask-RESTPlus to maintained Flask-RESTX and
 updates Flask/CORS/Requests/PyYAML. The non-NLP services select Python 3.12.
-The analytics NLP/scientific libraries and bundled spaCy 2 model remain obsolete;
-its Python 3.7 runtime declaration is incompatible with modern NLTK/shared
-HTTP dependencies. Do not deploy analyticsAI until that stack/model and runtime
-are migrated with real transcript integration tests. Offline security and API
-schema tests cannot establish cloud or NLP deployability.
+AnalyticsAI now selects Python 3.12.15 in Cloud Foundry's `runtime.txt`, replacing
+the unsupported Python 3.7 runtime. `.python-version` selects the 3.12 series for
+local tooling. Cloud Foundry staging requires a buildpack supporting 3.12.15;
+the upstream manifest checked during review still lists 3.12.14. Update the
+buildpack when 3.12.15 is available rather than silently selecting an older
+runtime. Local compatibility tests used 3.12.13; cloud staging is unverified. Install from `analyticsAI/requirements.txt`; it includes a complete
+version-pinned, hashed `requirements.lock`. Maintain direct dependencies in
+`requirements.in` and regenerate the lock with:
+
+```sh
+uv pip compile analyticsAI/requirements.in --python-version 3.12 --generate-hashes --output-file analyticsAI/requirements.lock
+```
+
+The active NLP pipeline uses spaCy 3.8 and the official English 3.8.0 model
+wheel, pinned by URL and hash. The old bundled spaCy 2 model is retained only as
+legacy source data and is no longer installed. Unused PDF/summarization helpers
+and their obsolete Tika/Gensim dependencies have been removed. Custom stopwords,
+WordNet lemmatization and the TextRank algorithm remain in place; isolated graph
+nodes now get deterministic zero normalization instead of uninitialized memory.
+NLP rejects text above 100000 characters or 10000 tokens, transcripts above
+10000 segments and TextRank graphs above 1000 unique candidate words. Limits
+also cover DB/upstream transcripts before repeated period processing; each
+dense matrix is at most 1000 by 1000. Graph edge deduplication uses a set while
+preserving insertion order and existing weights. Oversized analyses fail rather
+than allocating an unbounded graph.
+New model weights can change POS tags, entities and keyword rankings relative
+to the old model, so compare representative deployment transcripts before rollout.
+
+Run offline migration checks (real local NLP, synthetic transcripts and mocked
+MongoDB/cloud clients) in the installed environment:
+
+```sh
+python -m unittest discover -s analyticsAI/test -p test_nlp_runtime.py -v
+python -m unittest discover -s tests -v
+```
+
+NLTK 3.10.3 still has the unfixed model-artifact path sandbox advisory
+CVE-2026-81726 / GHSA-8mgp-746c-j5xp. This application uses bundled trusted
+stopwords/WordNet and `word_tokenize(..., preserve_line=True)`, and does not call
+the affected parser/perceptron model import/export APIs or let users select their
+paths. Do not introduce those APIs with user-controlled paths. Dependency audit
+cannot assess the official spaCy model because it is distributed outside PyPI;
+the model's upstream compatibility and wheel hash are checked separately.
+Offline tests establish local NLP/API compatibility, not cloud deployment or
+live service correctness.
 
 API request bodies are capped at 1 MiB. Cross-origin access is disabled by
 default; YOUSIGHTS_CORS_ORIGINS may list trusted exact frontend origins. Wildcard

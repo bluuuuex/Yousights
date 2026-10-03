@@ -7,6 +7,7 @@ from __init__ import entity_type, entity_max_count
 import corpus
 import logging
 import traceback
+from sources.nlp_limits import NLPLimitError
 
 logging.getLogger(__name__)
 
@@ -32,6 +33,8 @@ def analysis_computing(query, source, api_ret):
         # if video_detail['video_id'] == 'rfscVS0vtbw': continue
         try:
             en_transcript = text_processing.get_trans_str(video_detail["data"]["en_transcript"])
+        except NLPLimitError:
+            raise
         except Exception as error:
             logging.error(f"Error while converting raw transcript to string: {error}")
             logging.error(traceback.format_exc())
@@ -40,6 +43,8 @@ def analysis_computing(query, source, api_ret):
             try:
                 # en_transcript_keywords = text_processing.text_preprocessed_key(en_transcript)
                 en_transcript_keywords = text_processing.get_weighted_keywords(en_transcript)
+            except NLPLimitError:
+                raise
             except Exception as error:
                 logging.error(f"Error while generating the keywords for transcript: {error}")
                 logging.error(traceback.format_exc())

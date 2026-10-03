@@ -44,12 +44,10 @@ import pandas as pd
 
 from nltk.corpus import stopwords
 from nltk.stem import WordNetLemmatizer
-from gensim.summarization import summarize
-from gensim.summarization import keywords
-from tika import parser
 from collections import Counter
 from __init__ import application_path
 from sources import youtube_text_keywords
+from sources.nlp_limits import MAX_TEXT_CHARACTERS, MAX_TOKENS, MAX_TRANSCRIPT_SEGMENTS, NLPLimitError, validate_text
 
 # nltk.download("stopwords")
 # nltk.download("punkt")
@@ -75,17 +73,6 @@ def comment_clean(comments):
     return clean_comment
 
 
-def pdf_to_text(file_path):
-    try:
-        raw_file = parser.from_file(file_path)
-        content = raw_file["content"]
-        return content
-    except Exception as error:
-        logging.error(f"Error while proccesing PDF file: {file_path}")
-        logging.error(f"Error message: {error}")
-        return False
-
-
 def normalization(text):
     """
     Normalise input text and return tokens
@@ -94,7 +81,10 @@ def normalization(text):
     Returns:
         tokens
     """
+    validate_text(text)
     tokens = nltk.word_tokenize(text, preserve_line=True)
+    if len(tokens) > MAX_TOKENS:
+        raise NLPLimitError("NLP text exceeds 10000 tokens")
     norm_text = []
     for token in tokens:
         # remove non-ASCII characters
@@ -126,50 +116,6 @@ def lemmatize_verbs(words):
         lemma = lemmatizer.lemmatize(lemma, pos="a")
         lemmas.append(lemma)
     return lemmas
-
-
-def get_text_keywords(text, ratio=0.2, words=None, split=False, scores=False, pos_filter=("NN"), lemmatize=False,
-                      deacc=False):
-    """
-    Get keywords from text
-    Args:
-        text
-    Args optional:
-        ratio
-        words
-        split
-        scores
-        pos_filter
-        lemmatize
-        deacc
-    Returns:
-        keywords
-    """
-    text_keywords = keywords(text, ratio, words, split, scores, pos_filter, lemmatize, deacc)
-    return text_keywords
-
-
-def get_text_summarize(text):
-    """
-    Get summarised text
-    Args:
-        text
-    Returns:
-        summarized text
-    """
-    summarized_text = summarize(text)
-    return summarized_text
-
-
-def text_preprocessed_key(text):
-    """
-    Get the keywords of processed text
-    :param text
-    :return keywords of processed text
-    """
-    book_text = get_text_keywords(" ".join(lemmatize_verbs(normalization(text)))).split()
-
-    return book_text
 
 
 def get_weighted_keywords(text):
@@ -214,7 +160,14 @@ def get_trans_str(en_transcript):
     :return:
     """
 
-    en_transcript_str = ""
+    if len(en_transcript) > MAX_TRANSCRIPT_SEGMENTS:
+        raise NLPLimitError("Transcript exceeds 10000 segments")
+    texts = []
+    total_characters = 0
     for each_transcript in en_transcript:
-        en_transcript_str += each_transcript["text"] + " "
-    return en_transcript_str
+        text = each_transcript["text"]
+        total_characters += len(text) + 1  # Preserve each segment's trailing space.
+        if total_characters > MAX_TEXT_CHARACTERS:
+            raise NLPLimitError("Transcript exceeds 100000 characters")
+        texts.append(text)
+    return " ".join(texts) + (" " if texts else "")

@@ -100,7 +100,7 @@ def make_request(cat, lng, lat, page):
 
     headers = {"Authorization": token}
 
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, timeout=(5, 30))
     content = json.loads(r.content.decode("utf-8"))
     return content
 

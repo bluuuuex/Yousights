@@ -416,3 +416,6 @@ typings/
 
 # DynamoDB Local files
 .dynamodb/
+
+**/config/credentials.json
+.codegraph/

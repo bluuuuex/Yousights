@@ -2,7 +2,7 @@
 
 from flask import Flask
 from flask_cors import CORS
-from flask_restplus import Api
+from flask_restx import Api
 import logging
 import logging.config
 import yaml
@@ -19,12 +19,11 @@ def load_json_file(file_path):
 
 
 def create_mongodb_client():
-    try:
-        mongodb_client = pymongo.MongoClient("mongodb+srv://yousights:dQZ9UbGXMxS2C71R@yousightcluster0-fzaej.mongodb.net/test?retryWrites=true&w=majority")
-        return mongodb_client
-    except Exception as error:
-        logging.error(f"Error while connecting to MongoDB: {error}")
-        return False
+    uri = os.environ.get("YOUSIGHTS_MONGODB_URI")
+    if not uri:
+        raise RuntimeError("YOUSIGHTS_MONGODB_URI must be configured")
+    return pymongo.MongoClient(uri, serverSelectionTimeoutMS=5000,
+                               connectTimeoutMS=5000, socketTimeoutMS=15000)
 
 
 application_path = os.path.dirname(os.path.abspath(__file__))
@@ -45,7 +44,10 @@ credentials_file_path = application_path + "/config/credentials.json"
 credentials = load_json_file(credentials_file_path)
 
 app = Flask(__name__)
-CORS(app)
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+cors_origins = [origin.strip() for origin in os.environ.get("YOUSIGHTS_CORS_ORIGINS", "").split(",") if origin.strip() and origin.strip() != "*"]
+if cors_origins:
+    CORS(app, origins=cors_origins)
 api = Api(app, version="1.0", title="YouSights API", description="YouSights backend component")
 api.namespaces.clear()  # clear default namespace
 api = api.namespace("api/v1.0/", description="YouSights API")

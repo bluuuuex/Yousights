@@ -2,7 +2,7 @@
 
 from flask import Flask
 from flask_cors import CORS
-from flask_restplus import Api
+from flask_restx import Api
 import logging
 import logging.config
 import yaml
@@ -32,7 +32,10 @@ with open(application_path + "/config/logging.yml", "r") as stream:
 
 
 app = Flask(__name__)
-CORS(app)
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+cors_origins = [origin.strip() for origin in os.environ.get("YOUSIGHTS_CORS_ORIGINS", "").split(",") if origin.strip() and origin.strip() != "*"]
+if cors_origins:
+    CORS(app, origins=cors_origins)
 
 
 api = Api(app, version="1.0", title="Events API", description="Events component")

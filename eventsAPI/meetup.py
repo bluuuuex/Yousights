@@ -45,10 +45,9 @@ def get_api_credentials():
 
 
 def get_new_access_token():
-    refresh_url = "https://secure.meetup.com/oauth2/access?client_id={0}&client_secret={1}&grant_type=refresh_token&refresh_token={2}".format(
-        get_api_credentials()["client_id"], get_api_credentials()["client_secret"], get_api_credentials()["refresh_token"]
-    )
-    r = requests.post(refresh_url)
+    params = dict(get_api_credentials(), grant_type="refresh_token")
+    r = requests.post("https://secure.meetup.com/oauth2/access", data=params, timeout=(5, 30))
+    r.raise_for_status()
     content = json.loads(r.content.decode("utf-8"))
     return content["access_token"]
 
@@ -59,7 +58,7 @@ def get_meetup_events(lat, lng, radius, keyword):
     headers = {"Authorization": "Bearer {0}".format(access_token)}
     events_url = "https://api.meetup.com/find/upcoming_events?lat={0}&lon={1}&radius={2}&topic_category={3}&text={4}".format(lat, lng, radius, tech_cat_id, keyword)
 
-    r = requests.get(events_url, headers=headers)
+    r = requests.get(events_url, headers=headers, timeout=(5, 30))
     content = json.loads(r.content.decode("utf-8"))
     return content["events"]
 

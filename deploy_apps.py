@@ -1,96 +1,42 @@
-# Abracadata IBM cloud deployment application
-
-import subprocess
-import os
-import time
+"""Deploy legacy services using a preinstalled IBM Cloud CLI."""
 import argparse
-import threading
+from concurrent.futures import ThreadPoolExecutor
+import os
+from pathlib import Path
+import shutil
+import subprocess
 
 
-def executeCommand(command):
-    """
-    Execute linux command
-    """
-    print('Executing: ' + command)
-    p = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-    output = p.communicate()[0]
-    print(output)
-    print('Return code: ', p.returncode)
-    if p.returncode > 0:
-        print(f'Error executing command: {command} ')
-        return False
-    print('Command successful.')
-    return True
-
-
-def deploy_app(threadName, command):
-    """
-    Deploy application
-    """
-    print(f'Thread name: {threadName}')
-    executeCommand(command)
-
-
-class myThread (threading.Thread):
-    """
-    Thread class
-    """
-    def __init__(self, thread_Name, command):
-        threading.Thread.__init__(self)
-        self.thread_Name = thread_Name
-        self.command = command
-
-    def run(self):
-        # print("Starting " + self.thread_Name)
-        deploy_app(self.thread_Name, self.command)
-        print("Exiting " + self.thread_Name)
+def execute_command(arguments, cwd=None):
+    # Login arguments and output can contain secrets; do not log them.
+    result = subprocess.run(arguments, cwd=cwd, capture_output=True, check=False)
+    if result.returncode:
+        raise RuntimeError("IBM Cloud command failed with exit code %d" % result.returncode)
 
 
 def main():
-    # get input parameters
-    parser = argparse.ArgumentParser(description='IBM Cloud application deployment')
-    parser.add_argument('-apiKey', type=str, help='#Cloud API Key', required=False)
-    args, unknown_args = parser.parse_known_args()
-    apiKey = args.apiKey
-
-    apiKey = "xxxxxxxxxxxxxx"
-
-    # get application path
-    application_path = os.path.dirname(os.path.abspath(__file__))
-
-    # IBM Cloud login command
-    login_command = f'curl -fsSL https://clis.cloud.ibm.com/install/linux | sh; ibmcloud api https://api.eu-gb.bluemix.net; ibmcloud login --apikey "{apiKey}" -o xxxxxxxxx -s dev'
-
-    # set deployment commands for all apps
-    deploy_analyticsAI = f'cd {application_path}/analyticsAI; ibmcloud app push -k 2GB'
-    deploy_youtubeData = f'cd {application_path}/youtubeData; ibmcloud app push'
-    deploy_eventsAPI = f'cd {application_path}/eventsAPI; ibmcloud app push'
-    deploy_yousights_fe = f'cd {application_path}/yousights-fe; ibmcloud app push'
-
-    # Create new threads
-    start = time.time()
-    executeCommand(login_command)
-    thread1 = myThread("Deploy FrontEnd", deploy_yousights_fe)
-    thread2 = myThread("Deploy Events", deploy_eventsAPI)
-    thread3 = myThread("Deploy YoutubeData", deploy_youtubeData)
-    thread4 = myThread("Deploy AnalyticsAI", deploy_analyticsAI)
-
-    # Start new Threads
-    thread1.start()
-    thread2.start()
-    thread3.start()
-    thread4.start()
-    thread1.join()
-    thread2.join()
-    thread3.join()
-    thread4.join()
-    print("Exiting Main Thread")
-    end = time.time()
-    total_time = round((end - start), 2)
-    print(f'Execution time: {total_time} seconds')
+    parser = argparse.ArgumentParser(description="IBM Cloud application deployment")
+    parser.add_argument("-apiKey", default=os.environ.get("IBM_CLOUD_API_KEY"))
+    args = parser.parse_args()
+    if not args.apiKey:
+        parser.error("Set IBM_CLOUD_API_KEY or supply -apiKey")
+    organization = os.environ.get("IBM_CLOUD_ORG")
+    if not organization:
+        parser.error("Set IBM_CLOUD_ORG")
+    if not shutil.which("ibmcloud"):
+        parser.error("Install the IBM Cloud CLI before deploying")
+    execute_command(["ibmcloud", "api", "https://api.eu-gb.bluemix.net"])
+    execute_command(["ibmcloud", "login", "--apikey", args.apiKey, "-o", organization,
+                     "-s", os.environ.get("IBM_CLOUD_SPACE", "dev")])
+    root = Path(__file__).resolve().parent
+    def deploy(service):
+        command = ["ibmcloud", "app", "push"]
+        if service == "analyticsAI":
+            command += ["-k", "2GB"]
+        execute_command(command, cwd=str(root / service))
+    with ThreadPoolExecutor(max_workers=4) as pool:
+        list(pool.map(deploy, ["yousights-fe", "eventsAPI", "youtubeData", "analyticsAI"]))
 
 
-merge_request = os.environ.get('MERGE_PULL_REQUEST')
-print(f'merge_request: {merge_request}')
-if merge_request:
+if __name__ == "__main__" and os.environ.get("MERGE_PULL_REQUEST", "").lower() == "true":
     main()

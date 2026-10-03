@@ -46,7 +46,7 @@ def youtube_video_basic_search(keyword, order=None, max_results=None, page_token
     i = 0
     while (i < keys_count) and (is_success is False):
         request_params["key"] = youtube_api_keys[i]
-        r = requests.get(request_URL, params=request_params)
+        r = requests.get(request_URL, params=request_params, timeout=(5, 30))
 
         is_success = True
         try:
@@ -99,7 +99,7 @@ def youtube_video_get_basic_info(video_id):
     i = 0
     while (i < keys_count) and (is_success is False):
         request_params["key"] = youtube_api_keys[i]
-        r = requests.get(request_URL, params=request_params)
+        r = requests.get(request_URL, params=request_params, timeout=(5, 30))
 
         is_success = True
         try:
@@ -156,7 +156,7 @@ def youtube_video_get_comments(video_id, max_results=None):
     i = 0
     while (i < keys_count) and (is_success is False):
         request_params["key"] = youtube_api_keys[i]
-        r = requests.get(request_URL, params=request_params)
+        r = requests.get(request_URL, params=request_params, timeout=(5, 30))
 
         is_success = True
         try:

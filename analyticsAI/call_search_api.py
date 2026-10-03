@@ -17,7 +17,7 @@ def CallSearchAPI(params):
         api_input = {"params": api_params}
         headers = {"Authorization": BasicAuthCredentials}
 
-        r = requests.post(youtubeDataURL, json=api_input, headers=headers)
+        r = requests.post(youtubeDataURL, json=api_input, headers=headers, timeout=(5, 30))
 
         response_json = r.text
         response_dict = json.loads(response_json)

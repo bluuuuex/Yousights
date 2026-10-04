@@ -416,3 +416,9 @@ typings/
 
 # DynamoDB Local files
 .dynamodb/
+
+**/config/credentials.json
+.codegraph/
+
+# Shared supported runtime selection for AnalyticsAI.
+!analyticsAI/.python-version

@@ -34,21 +34,32 @@ def get_events(keyword, lat, lng):
 
 
 def get_api_credentials():
-    application_path = os.path.abspath(os.path.join(os.getcwd(), ""))
-    config_path = application_path + "/config/credentials.json"
-    with open(config_path) as config_json:
-        config = json.load(config_json)
-        for credentials in config["credentials"]:
-            if credentials["Name"] == "meetup":
-                feed_credentials = credentials["FeedCredentials"]
-                return {"client_id": feed_credentials["ClientId"], "client_secret": feed_credentials["ClientSecret"], "refresh_token": feed_credentials["ApiKey"]}
+    values = {
+        "client_id": os.environ.get("YOUSIGHTS_MEETUP_CLIENT_ID"),
+        "client_secret": os.environ.get("YOUSIGHTS_MEETUP_CLIENT_SECRET"),
+        "refresh_token": os.environ.get("YOUSIGHTS_MEETUP_REFRESH_TOKEN"),
+    }
+    if all(values.values()):
+        return values
+    # An explicitly supplied partial environment must not silently fall back.
+    if any(name in os.environ for name in ("YOUSIGHTS_MEETUP_CLIENT_ID", "YOUSIGHTS_MEETUP_CLIENT_SECRET", "YOUSIGHTS_MEETUP_REFRESH_TOKEN")):
+        raise RuntimeError("Configure all three YOUSIGHTS_MEETUP credentials")
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config", "credentials.json")
+    if os.path.isfile(config_path):
+        with open(config_path) as config_json:
+            for entry in json.load(config_json).get("credentials", []):
+                if entry.get("Name") == "meetup":
+                    feed = entry.get("FeedCredentials", {})
+                    values = {"client_id": feed.get("ClientId"), "client_secret": feed.get("ClientSecret"), "refresh_token": feed.get("ApiKey")}
+                    if all(values.values()):
+                        return values
+    raise RuntimeError("Configure all three YOUSIGHTS_MEETUP credentials or a private credentials file")
 
 
 def get_new_access_token():
-    refresh_url = "https://secure.meetup.com/oauth2/access?client_id={0}&client_secret={1}&grant_type=refresh_token&refresh_token={2}".format(
-        get_api_credentials()["client_id"], get_api_credentials()["client_secret"], get_api_credentials()["refresh_token"]
-    )
-    r = requests.post(refresh_url)
+    params = dict(get_api_credentials(), grant_type="refresh_token")
+    r = requests.post("https://secure.meetup.com/oauth2/access", data=params, timeout=(5, 30))
+    r.raise_for_status()
     content = json.loads(r.content.decode("utf-8"))
     return content["access_token"]
 
@@ -59,7 +70,7 @@ def get_meetup_events(lat, lng, radius, keyword):
     headers = {"Authorization": "Bearer {0}".format(access_token)}
     events_url = "https://api.meetup.com/find/upcoming_events?lat={0}&lon={1}&radius={2}&topic_category={3}&text={4}".format(lat, lng, radius, tech_cat_id, keyword)
 
-    r = requests.get(events_url, headers=headers)
+    r = requests.get(events_url, headers=headers, timeout=(5, 30))
     content = json.loads(r.content.decode("utf-8"))
     return content["events"]
 

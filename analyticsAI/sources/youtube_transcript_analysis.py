@@ -2,7 +2,7 @@
 
 
 import io
-from sources import youtube_transcript_text_analysis
+from sources import youtube_transcript_text_analysis, youtube_text_processing
 
 
 class GeneratingPeriodsTranscriptsException(Exception):
@@ -11,6 +11,8 @@ class GeneratingPeriodsTranscriptsException(Exception):
 
 # Generate separate transcript text for separate periods
 def generate_periods_transcript_text(original_transcript, periods_count):
+    # Bound upstream/DB transcript size before scanning it once per period.
+    youtube_text_processing.get_trans_str(original_transcript)
     original_transcript_count = len(original_transcript)
 
     # if original_transcript is empty, raise an exception

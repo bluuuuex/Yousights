@@ -5,6 +5,7 @@ Keyewords Extraction based on Text Rank and Spacy
 from collections import OrderedDict
 import numpy as np
 import spacy
+from sources.nlp_limits import MAX_TEXT_CHARACTERS, MAX_TOKENS, MAX_KEYWORD_NODES, NLPLimitError
 
 keywords_nlp = spacy.load('en_core_web_sm')
 
@@ -32,9 +33,16 @@ def get_keywords(list_of_word, keywords_number):
     :return: dict() {'keyword': weight}
     '''
     # Convert list of the words to string
+    if len(list_of_word) > MAX_TOKENS:
+        raise NLPLimitError("NLP text exceeds 10000 tokens")
+    if sum(len(word) for word in list_of_word) + max(len(list_of_word) - 1, 0) > MAX_TEXT_CHARACTERS:
+        raise NLPLimitError("NLP text exceeds 100000 characters")
     text = ' '.join(list_of_word)
 
-    doc = keywords_nlp(text)
+    doc = keywords_nlp.make_doc(text)
+    if len(doc) > MAX_TOKENS:
+        raise NLPLimitError("NLP text exceeds 10000 tokens")
+    doc = keywords_nlp(doc)
 
     '''
     Make Sentences
@@ -53,18 +61,22 @@ def get_keywords(list_of_word, keywords_number):
     '''
     vocabulary = OrderedDict()
     n_gram_pairs = list()
+    seen_pairs = set()
     word_index = 0
 
     for sentence in sentences:
         for index, word in enumerate(sentence):
             if word not in vocabulary:
+                if len(vocabulary) >= MAX_KEYWORD_NODES:
+                    raise NLPLimitError("TextRank exceeds 1000 candidate words")
                 vocabulary[word] = word_index
                 word_index += 1
             for j in range(index + 1, index + N):
                 if j >= len(sentence):
                     break
                 n_gram_pair = (word, sentence[j])
-                if n_gram_pair not in n_gram_pairs:
+                if n_gram_pair not in seen_pairs:
+                    seen_pairs.add(n_gram_pair)
                     n_gram_pairs.append(n_gram_pair)
 
     '''
@@ -82,7 +94,7 @@ def get_keywords(list_of_word, keywords_number):
 
     # Normalize the matrix
     norm = np.sum(sym_matrix, axis=0)
-    norm_sym_matrix = np.divide(sym_matrix, norm, where=norm != 0)
+    norm_sym_matrix = np.divide(sym_matrix, norm, out=np.zeros_like(sym_matrix), where=norm != 0)
 
     # Initialize the page rank
     page_rank = np.array([1] * len(vocabulary))

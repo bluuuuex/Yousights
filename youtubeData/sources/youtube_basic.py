@@ -1,6 +1,7 @@
 # basic functions for searching YouTube videos and getting their information
 
 
+import os
 import requests
 import json
 from sources import dict_tools
@@ -17,13 +18,14 @@ class YouTubeBasicOperationException(Exception):
 # If there is one and only one key, then this key will be used.
 # If there are more than one key, then all these keys may be used.
 def get_youtube_api_keys():
-    the_keys = []
-    the_keys.append(credentials["credentials"]["youtube"]["api_key"])
-    the_keys.append(credentials["credentials"]["youtube1"]["api_key"])
-    the_keys.append(credentials["credentials"]["youtube2"]["api_key"])
-    the_keys.append(credentials["credentials"]["youtube3"]["api_key"])
-    the_keys.append(credentials["credentials"]["youtube4"]["api_key"])
-    the_keys.append(credentials["credentials"]["youtube5"]["api_key"])
+    configured = os.environ.get("YOUSIGHTS_YOUTUBE_API_KEYS")
+    if configured is not None:
+        the_keys = [key.strip() for key in configured.split(",") if key.strip()]
+    else:
+        the_keys = [item.get("api_key") for item in credentials.get("credentials", {}).values()
+                    if isinstance(item, dict) and item.get("api_key")]
+    if not the_keys:
+        raise YouTubeBasicOperationException("Configure YOUSIGHTS_YOUTUBE_API_KEYS or a private credentials file")
     return the_keys
 
 
@@ -46,7 +48,7 @@ def youtube_video_basic_search(keyword, order=None, max_results=None, page_token
     i = 0
     while (i < keys_count) and (is_success is False):
         request_params["key"] = youtube_api_keys[i]
-        r = requests.get(request_URL, params=request_params)
+        r = requests.get(request_URL, params=request_params, timeout=(5, 30))
 
         is_success = True
         try:
@@ -99,7 +101,7 @@ def youtube_video_get_basic_info(video_id):
     i = 0
     while (i < keys_count) and (is_success is False):
         request_params["key"] = youtube_api_keys[i]
-        r = requests.get(request_URL, params=request_params)
+        r = requests.get(request_URL, params=request_params, timeout=(5, 30))
 
         is_success = True
         try:
@@ -156,7 +158,7 @@ def youtube_video_get_comments(video_id, max_results=None):
     i = 0
     while (i < keys_count) and (is_success is False):
         request_params["key"] = youtube_api_keys[i]
-        r = requests.get(request_URL, params=request_params)
+        r = requests.get(request_URL, params=request_params, timeout=(5, 30))
 
         is_success = True
         try:

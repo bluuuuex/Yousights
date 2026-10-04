@@ -1,9 +1,11 @@
-flask==1.0.3
-flask_restplus==0.12.1
-flask_cors==3.0.7
-pyyaml==5.1
-requests==2.22.0
-youtube_transcript_api==0.1.4
-flask_basicauth==0.2.0
-pymongo==3.8.0
-dnspython==1.16.0
+# Patched HTTP/API/configuration stack. Requires Python >=3.10.
+Flask==3.1.3
+flask-restx==1.3.2
+Flask-Cors==6.0.2
+PyYAML==6.0.3
+requests==2.33.0
+flask-basicauth==0.2.0
+
+youtube-transcript-api==0.1.4
+pymongo>=4.6.3
+dnspython>=2.6.1

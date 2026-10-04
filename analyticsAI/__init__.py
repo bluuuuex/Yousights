@@ -2,13 +2,14 @@
 
 from flask import Flask
 from flask_cors import CORS
-from flask_restplus import Api
+from flask_restx import Api
 import logging
 import logging.config
 import yaml
 import json
 import os
 import pymongo
+import base64
 
 
 def load_json_file(file_path):
@@ -19,12 +20,11 @@ def load_json_file(file_path):
 
 
 def create_mongodb_client():
-    try:
-        mongodb_client = pymongo.MongoClient("mongodb+srv://xxxxx")
-        return mongodb_client
-    except Exception as error:
-        logging.error(f"Error while connecting to MongoDB: {error}")
-        return False
+    uri = os.environ.get("YOUSIGHTS_MONGODB_URI")
+    if not uri:
+        raise RuntimeError("YOUSIGHTS_MONGODB_URI must be configured")
+    return pymongo.MongoClient(uri, serverSelectionTimeoutMS=5000,
+                               connectTimeoutMS=5000, socketTimeoutMS=15000)
 
 
 # create the shared MongoDB client
@@ -52,7 +52,7 @@ app_config_file_path = application_path + "/config/config.json"
 app_config = load_json_file(app_config_file_path)
 
 youtubeDataURL = "http://127.0.0.1:5000" + app_config["YoutubeDataAPI"]
-BasicAuthCredentials = app_config["BasicAuthCredentials"]
+BasicAuthCredentials = "Basic " + base64.b64encode((os.environ["YOUSIGHTS_BASIC_AUTH_USERNAME"] + ":" + os.environ["YOUSIGHTS_BASIC_AUTH_PASSWORD"]).encode("utf-8")).decode("ascii")
 
 # try to get cloud port to confirm if environment is cloud
 isCloud = os.getenv("PORT")
@@ -60,7 +60,10 @@ if isCloud:
     youtubeDataURL = "https://youtubedata.eu-gb.mybluemix.net" + app_config["YoutubeDataAPI"]
 
 app = Flask(__name__)
-CORS(app)
+app.config["MAX_CONTENT_LENGTH"] = 1024 * 1024
+cors_origins = [origin.strip() for origin in os.environ.get("YOUSIGHTS_CORS_ORIGINS", "").split(",") if origin.strip() and origin.strip() != "*"]
+if cors_origins:
+    CORS(app, origins=cors_origins)
 
 api = Api(app, version="1.0", title="YouSights AI API", description="YouSights AI component")
 api.namespaces.clear()  # clear default namespace

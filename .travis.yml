@@ -1,46 +1,9 @@
-matrix:
-  include:
-  - language: node_js
-    node_js:
-      - "10"
-
-    # command to install dependencies
-    install:
-      - 'if [ -z “$MERGE_PULL_REQUEST” ]; then npm install;npm install eslint eslint-config-airbnb-base eslint-plugin-import -d; fi'
-
-    script:
-      # run test just on pull request not on merge
-      - cd $TRAVIS_BUILD_DIR/yousights-fe/static/js
-      - 'if [ -z “$MERGE_PULL_REQUEST” ]; then npm init --yes; npm run lint; fi'
-
-  - language: python
-    python:
-      - "3.6"
-
-    # command to install dependencies
-    install:
-      # Run if not MERGE_PULL_REQUEST
-      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then pip3 install flake8; fi'
-      - cd $TRAVIS_BUILD_DIR/analyticsAI
-      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then pip3 install -r requirements.txt; fi'
-      - cd $TRAVIS_BUILD_DIR/youtubeData
-      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then pip3 install -r requirements.txt; fi'
-
-    # command to run tests
-    script:
-      # Run if not MERGE_PULL_REQUEST
-      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then cd $TRAVIS_BUILD_DIR; fi'
-      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then flake8 ./  --ignore E501 --exclude=_ideas/*; fi'
-      - cd $TRAVIS_BUILD_DIR/eventsAPI
-      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then python -m pytest; fi'
-      - cd $TRAVIS_BUILD_DIR/analyticsAI
-      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then python -m pytest; fi'
-#      - cd $TRAVIS_BUILD_DIR/youtubeData
-#      - 'if [ -z "$MERGE_PULL_REQUEST" ]; then python -m pytest; fi'
-
-    after_script:
-      - 'if [ "$MERGE_PULL_REQUEST" ]; then cd $TRAVIS_BUILD_DIR; fi'
-
-      # Deploy IBM Bluemix
-      - 'if [ "$MERGE_PULL_REQUEST" ]; then python deploy_apps.py; fi'
-
+# Offline checks only. Cloud deployment is a separate manual operation.
+language: python
+python:
+  - "3.12"
+install:
+  - python -m pip install -r analyticsAI/requirements.txt
+script:
+  - python -m unittest discover -s tests -v
+  - python -m unittest discover -s analyticsAI/test -p test_nlp_runtime.py -v

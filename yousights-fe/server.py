@@ -1,4 +1,5 @@
-from flask import Flask, jsonify
+from flask import Flask, jsonify, redirect
+from urllib.parse import urlencode
 import os
 from version import __version__
 
@@ -14,19 +15,21 @@ def root():
     return app.send_static_file('index.html')
 
 
+@app.route('/maps.js')
+def maps_script():
+    key = os.environ.get("YOUSIGHTS_MAPS_BROWSER_KEY")
+    if not key:
+        return "// Google Maps is not configured.\n", 200, {"Content-Type": "application/javascript", "Cache-Control": "no-store"}
+    response = redirect("https://maps.googleapis.com/maps/api/js?" + urlencode({"key": key, "callback": "initMap"}))
+    response.headers["Cache-Control"] = "no-store"
+    return response
+
+
 @app.route('/status')
 def app_stauts():
     # return app version
     return jsonify(application="Yousights-FE", version=__version__)
 
 
-@app.route('/logs')
-def get_logs(self):
-    file_path = application_path + "/logs/server.log"
-    with open(file_path) as file:
-        logs = file.readlines()
-    return jsonify(application="Yousights-FE", logs=logs)
-
-
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=port, debug=True)
+    app.run(host=os.getenv("YOUSIGHTS_HOST") or ("0.0.0.0" if os.getenv("PORT") else "127.0.0.1"), port=port, debug=False)

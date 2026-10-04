@@ -4,7 +4,7 @@
 
 # import python libs
 from flask import request, jsonify, abort
-from flask_restplus import Resource
+from flask_restx import Resource
 from flask_basicauth import BasicAuth
 import logging
 
@@ -24,9 +24,11 @@ import sys
 
 logging.getLogger(__name__)
 
-app.config["BASIC_AUTH_USERNAME"] = "xxxxxxxx"
-app.config["BASIC_AUTH_PASSWORD"] = "xxxxxxxx"
+app.config["BASIC_AUTH_USERNAME"] = os.environ["YOUSIGHTS_BASIC_AUTH_USERNAME"]
+app.config["BASIC_AUTH_PASSWORD"] = os.environ["YOUSIGHTS_BASIC_AUTH_PASSWORD"]
 
+if not app.config["BASIC_AUTH_USERNAME"] or not app.config["BASIC_AUTH_PASSWORD"]:
+    raise RuntimeError("Nonempty Basic Auth credentials must be configured")
 basic_auth = BasicAuth(app)
 
 port = int(os.getenv("PORT", 5001))
@@ -158,4 +160,4 @@ if __name__ == "__main__":
         database_automatic_updater = database_update_scheduler.DatabaseUpdateScheduler()
         database_automatic_updater.start()
 
-    app.run(host="0.0.0.0", port=port)
+    app.run(host=os.getenv("YOUSIGHTS_HOST") or ("0.0.0.0" if os.getenv("PORT") else "127.0.0.1"), port=port, debug=False)

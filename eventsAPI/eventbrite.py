@@ -35,14 +35,18 @@ def get_events(keyword, lat, lng):
 
 
 def get_api_key():
-    application_path = os.path.abspath(os.path.join(os.getcwd(), ""))
-    config_path = application_path + "/config/credentials.json"
-    with open(config_path) as config_json:
-        config = json.load(config_json)
-        for credentials in config["credentials"]:
-            if credentials["Name"] == "eventbrite":
-                feed_credentials = credentials["FeedCredentials"]
-                return feed_credentials["ApiKey"]
+    key = os.environ.get("YOUSIGHTS_EVENTBRITE_API_KEY")
+    if key:
+        return key
+    config_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), "config", "credentials.json")
+    if os.path.isfile(config_path):
+        with open(config_path) as config_json:
+            for entry in json.load(config_json).get("credentials", []):
+                if entry.get("Name") == "eventbrite":
+                    key = entry.get("FeedCredentials", {}).get("ApiKey")
+                    if key:
+                        return key
+    raise RuntimeError("Configure YOUSIGHTS_EVENTBRITE_API_KEY or a private credentials file")
 
 
 def clean_word(word):
@@ -100,7 +104,7 @@ def make_request(cat, lng, lat, page):
 
     headers = {"Authorization": token}
 
-    r = requests.get(url, headers=headers)
+    r = requests.get(url, headers=headers, timeout=(5, 30))
     content = json.loads(r.content.decode("utf-8"))
     return content
 
